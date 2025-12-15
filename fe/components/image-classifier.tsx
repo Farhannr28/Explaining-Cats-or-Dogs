@@ -9,15 +9,16 @@ import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 
-interface ClassificationResult {
-  label: string
-  confidence: number
+interface ExplainResult {
+  method?: string
+  imageUrl?: string
 }
 
 export default function ImageClassifier() {
   const [image, setImage] = useState<string | null>(null)
   const [isClassifying, setIsClassifying] = useState(false)
-  const [results, setResults] = useState<ClassificationResult[]>([])
+  const [results, setResults] = useState<ExplainResult[]>([])
+  const [label, setLabel] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -36,20 +37,20 @@ export default function ImageClassifier() {
       const imageUrl = e.target?.result as string
       setImage(imageUrl)
       setResults([])
+      setLabel(null)
 
-      // Simulate classification
+      // Simulate Explain
       setIsClassifying(true)
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
-      // Mock results - Replace with actual API call
-      const mockResults: ClassificationResult[] = [
-        { label: "Golden Retriever", confidence: 0.94 },
-        { label: "Labrador Retriever", confidence: 0.78 },
-        { label: "Dog", confidence: 0.65 },
-        { label: "Mammal", confidence: 0.52 },
-        { label: "Pet", confidence: 0.48 },
+      // Mock result - Replace with actual API call
+      const mockResults: ExplainResult[] = [
+        { method: "Grad-CAM", imageUrl },
+        { method: "SHAP", imageUrl },
+        { method: "LIME", imageUrl },
       ]
-
+      
+      setLabel("Golden Retriever")
       setResults(mockResults)
       setIsClassifying(false)
     }
@@ -76,6 +77,7 @@ export default function ImageClassifier() {
   const handleReset = () => {
     setImage(null)
     setResults([])
+    setLabel(null)
     setIsClassifying(false)
   }
 
@@ -115,18 +117,10 @@ export default function ImageClassifier() {
             </div>
           ) : (
             <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-center">Picture</h3>
-                  <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-secondary">
-                    <Image src={image || "/placeholder.svg"} alt="Original image" fill className="object-contain" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-center">Area of Effect</h3>
-                  <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-secondary">
-                    <Image src={image || "/placeholder.svg"} alt="Area of effect" fill className="object-contain" />
-                  </div>
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-center">Picture</h3>
+                <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-secondary">
+                  <Image src={image || "/placeholder.svg"} alt="Original image" fill className="object-contain" />
                 </div>
               </div>
               <div className="mt-4 flex justify-end">
@@ -140,46 +134,59 @@ export default function ImageClassifier() {
       </Card>
 
       {image && (
-        <Card className="border-2 border-border bg-card p-6">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="rounded-full bg-primary/10 p-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-            </div>
-            <h2 className="text-2xl font-semibold">Classification Results</h2>
-          </div>
-
+        <>
           {isClassifying ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="mt-4 text-muted-foreground">Analyzing image...</p>
-            </div>
+            <Card className="border-2 border-border bg-card p-6">
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="mt-4 text-muted-foreground">Analyzing image...</p>
+              </div>
+            </Card>
           ) : results.length > 0 ? (
-            <div className="space-y-4">
-              {results.map((result, index) => (
-                <div
-                  key={index}
-                  className="group overflow-hidden rounded-lg border border-border bg-secondary/50 p-4 transition-colors hover:bg-secondary"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                        {index + 1}
-                      </span>
-                      <span className="text-lg font-medium">{result.label}</span>
+            <div className="space-y-6">
+              <Card 
+                className="overflow-hidden border border-border bg-secondary/30 hover:bg-secondary/50 transition-colors"
+              >
+                <div className="p-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="rounded-full bg-primary/10 p-2">
+                      <Sparkles className="h-5 w-5 text-primary"/>
                     </div>
-                    <span className="text-xl font-bold text-primary">{(result.confidence * 100).toFixed(1)}%</span>
+                    <h2 className="text-2xl font-semibold">Classification Result</h2>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full bg-primary transition-all duration-500 ease-out"
-                      style={{ width: `${result.confidence * 100}%` }}
-                    />
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-bold text-primary">{label}</span>
                   </div>
                 </div>
+              </Card>
+
+              {results.map((result, index) => (
+                <Card 
+                  key={index}
+                  className="overflow-hidden border border-border bg-secondary/30 hover:bg-secondary/50 transition-colors"
+                >
+                  <div className="p-4">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                        <span className="text-lg font-bold text-primary">{String.fromCharCode(65 + index)}</span>
+                      </div>
+                      <h3 className="text-xl font-semibold">{result.method}</h3>
+                    </div>
+                    
+                    <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-secondary">
+                      <Image 
+                        src={result.imageUrl || image || "/placeholder.svg"} 
+                        alt={`${result.method} result`} 
+                        fill 
+                        className="object-contain" 
+                      />
+                    </div>
+                  </div>
+                </Card>
               ))}
             </div>
           ) : null}
-        </Card>
+        </>
       )}
     </div>
   )
